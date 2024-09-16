@@ -22,7 +22,7 @@ FeelGoodBot is a Discord bot that provides personalized recommendations for musi
 
 1. Clone the repository:
     ```bash
-    git clone 
+    git clone https://github.com/igurvir/FeelGodBot
     ```
 
 2. Navigate to the project directory:
