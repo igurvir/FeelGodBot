@@ -1,6 +1,6 @@
 require('dotenv').config();
 const SpotifyWebApi = require('spotify-web-api-node');
-const axios = require('axios');  // For making requests to TMDb
+const axios = require('axios');
 const { Client, GatewayIntentBits } = require('discord.js');
 
 // Create a new client instance for Spotify
@@ -43,7 +43,7 @@ client.on('messageCreate', message => {
     }
 });
 
-// Function to handle mood responses with both Spotify and TMDb suggestions
+// Function to handle mood responses with Spotify, TMDb, and YouTube suggestions
 function handleMood(message, mood) {
     switch (mood) {
         case 'happy':
@@ -53,6 +53,9 @@ function handleMood(message, mood) {
             getTMDbRecommendation('comedy').then(movieUrl => {
                 message.channel.send(`Here's a fun comedy movie to keep you smiling: ${movieUrl}`);
             });
+            getYouTubeVideo('happy').then(videoUrl => {
+                message.channel.send(`Here's a fun YouTube video for your mood: ${videoUrl}`);
+            });
             break;
         case 'stressed':
             getSpotifyPlaylist('relax').then(playlistUrl => {
@@ -61,6 +64,9 @@ function handleMood(message, mood) {
             getTMDbRecommendation('drama').then(movieUrl => {
                 message.channel.send(`Here's a gripping drama to help you unwind: ${movieUrl}`);
             });
+            getYouTubeVideo('relaxing').then(videoUrl => {
+                message.channel.send(`Here's a relaxing YouTube video: ${videoUrl}`);
+            });
             break;
         case 'bored':
             getSpotifyPlaylist('fun').then(playlistUrl => {
@@ -68,6 +74,9 @@ function handleMood(message, mood) {
             });
             getTMDbRecommendation('action').then(movieUrl => {
                 message.channel.send(`Here's an action movie to get your adrenaline going: ${movieUrl}`);
+            });
+            getYouTubeVideo('boredom').then(videoUrl => {
+                message.channel.send(`Here's a fun YouTube video to beat boredom: ${videoUrl}`);
             });
             break;
         default:
@@ -109,6 +118,27 @@ async function getTMDbRecommendation(genre) {
     } catch (error) {
         console.error('Error fetching movie from TMDb:', error);
         return 'Error fetching movie.';
+    }
+}
+
+// Function to fetch YouTube video recommendations based on mood
+async function getYouTubeVideo(query) {
+    try {
+        const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+            params: {
+                part: 'snippet',
+                q: query,
+                type: 'video',
+                key: process.env.YOUTUBE_API_KEY,
+                maxResults: 1
+            }
+        });
+
+        const video = response.data.items[0];
+        return video ? `https://www.youtube.com/watch?v=${video.id.videoId}` : 'No video found.';
+    } catch (error) {
+        console.error('Error fetching YouTube video:', error);
+        return 'Error fetching video.';
     }
 }
 
