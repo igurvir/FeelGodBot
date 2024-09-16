@@ -13,6 +13,7 @@
     "axios": "^1.7.7",
     "discord.js": "^14.16.2",
     "dotenv": "^16.4.5",
+    "mongodb": "^6.9.0",
     "spotify-web-api-node": "^5.0.2"
   }
 }
