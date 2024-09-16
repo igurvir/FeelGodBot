@@ -20,6 +20,17 @@ const tmdbApi = axios.create({
     },
 });
 
+// YouTube API setup
+const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+const youtubeApi = axios.create({
+    baseURL: 'https://www.googleapis.com/youtube/v3/',
+    params: {
+        key: youtubeApiKey,
+        part: 'snippet',
+        type: 'video'
+    },
+});
+
 client.once('ready', () => {
     console.log('FeelGoodBot is online!');
 
@@ -31,7 +42,7 @@ client.once('ready', () => {
     });
 });
 
-client.on('messageCreate', message => {
+client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
     const args = message.content.split(' ');
@@ -39,107 +50,85 @@ client.on('messageCreate', message => {
 
     if (command === '!mood') {
         const mood = args[0];
-        handleMood(message, mood);
+        await handleMood(message, mood);
     }
 });
 
-// Function to handle mood responses with Spotify, TMDb, and YouTube suggestions
-function handleMood(message, mood) {
-    switch (mood) {
-        case 'happy':
-            getSpotifyPlaylist('happy').then(playlistUrl => {
-                message.channel.send(`Here's an upbeat playlist for your happy mood: ${playlistUrl}`);
-            });
-            getTMDbRecommendation('comedy').then(movieUrl => {
-                message.channel.send(`Here's a fun comedy movie to keep you smiling: ${movieUrl}`);
-            });
-            getYouTubeVideo('happy').then(videoUrl => {
-                message.channel.send(`Here's a fun YouTube video for your mood: ${videoUrl}`);
-            });
-            break;
-        case 'stressed':
-            getSpotifyPlaylist('relax').then(playlistUrl => {
-                message.channel.send(`Here's a calming playlist to help you relax: ${playlistUrl}`);
-            });
-            getTMDbRecommendation('drama').then(movieUrl => {
-                message.channel.send(`Here's a gripping drama to help you unwind: ${movieUrl}`);
-            });
-            getYouTubeVideo('relaxing').then(videoUrl => {
-                message.channel.send(`Here's a relaxing YouTube video: ${videoUrl}`);
-            });
-            break;
-        case 'bored':
-            getSpotifyPlaylist('fun').then(playlistUrl => {
-                message.channel.send(`Feeling bored? Here's a fun playlist: ${playlistUrl}`);
-            });
-            getTMDbRecommendation('action').then(movieUrl => {
-                message.channel.send(`Here's an action movie to get your adrenaline going: ${movieUrl}`);
-            });
-            getYouTubeVideo('boredom').then(videoUrl => {
-                message.channel.send(`Here's a fun YouTube video to beat boredom: ${videoUrl}`);
-            });
-            break;
-        default:
-            message.channel.send('I’m not sure what to suggest for that mood, but I’m here to help!');
-    }
-}
-
-// Function to fetch Spotify playlist based on mood
 async function getSpotifyPlaylist(query) {
     try {
         const data = await spotifyApi.searchPlaylists(query, { limit: 1 });
         const playlist = data.body.playlists.items[0];
         return playlist ? playlist.external_urls.spotify : 'No playlist found.';
     } catch (error) {
-        console.error('Error fetching playlist:', error);
-        return 'Error fetching playlist.';
+        console.error('Error fetching Spotify playlist', error);
+        return 'Sorry, I couldn\'t fetch a playlist at the moment.';
     }
 }
 
-// Function to fetch movie recommendations from TMDb based on genre
-async function getTMDbRecommendation(genre) {
+async function getTMDbRecommendation(genreId) {
     try {
-        const genreResponse = await tmdbApi.get('genre/movie/list');
-        const genres = genreResponse.data.genres;
-        const genreId = genres.find(g => g.name.toLowerCase() === genre.toLowerCase())?.id;
-
-        if (!genreId) return 'No movies found for this genre.';
-
-        const movieResponse = await tmdbApi.get('discover/movie', {
+        const response = await tmdbApi.get('discover/movie', {
             params: {
                 with_genres: genreId,
                 sort_by: 'popularity.desc',
-                language: 'en-US',
+                page: 1,
             },
         });
-
-        const movie = movieResponse.data.results[0];
+        const movie = response.data.results[0];
         return movie ? `https://www.themoviedb.org/movie/${movie.id}` : 'No movie found.';
     } catch (error) {
-        console.error('Error fetching movie from TMDb:', error);
-        return 'Error fetching movie.';
+        console.error('Error fetching TMDb movie', error);
+        return 'Sorry, I couldn\'t fetch a movie recommendation at the moment.';
     }
 }
 
-// Function to fetch YouTube video recommendations based on mood
 async function getYouTubeVideo(query) {
     try {
-        const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+        const response = await youtubeApi.get('search', {
             params: {
-                part: 'snippet',
                 q: query,
-                type: 'video',
-                key: process.env.YOUTUBE_API_KEY,
-                maxResults: 1
-            }
+                order: 'viewCount',
+                maxResults: 1,
+            },
         });
-
         const video = response.data.items[0];
         return video ? `https://www.youtube.com/watch?v=${video.id.videoId}` : 'No video found.';
     } catch (error) {
-        console.error('Error fetching YouTube video:', error);
-        return 'Error fetching video.';
+        console.error('Error fetching YouTube video', error);
+        return 'Sorry, I couldn\'t fetch a YouTube video at the moment.';
     }
 }
 
-client.login(process.env.DISCORD_TOKEN);
+async function handleMood(message, mood) {
+    switch (mood) {
+        case 'happy':
+            const happyPlaylist = await getSpotifyPlaylist('happy');
+            const comedyMovie = await getTMDbRecommendation('35'); // Genre ID for Comedy
+            const happyVideo = await getYouTubeVideo('happy');
+            message.channel.send(`Here's an upbeat playlist for your happy mood: ${happyPlaylist}`);
+            message.channel.send(`Here's a fun comedy movie to keep you smiling: ${comedyMovie}`);
+            message.channel.send(`Here's a fun YouTube video for your mood: ${happyVideo}`);
+            break;
+        case 'stressed':
+            const relaxPlaylist = await getSpotifyPlaylist('relax');
+            const dramaMovie = await getTMDbRecommendation('18'); // Genre ID for Drama
+            const stressReliefVideo = await getYouTubeVideo('stress relief');
+            message.channel.send(`Here's a calming playlist to help you relax: ${relaxPlaylist}`);
+            message.channel.send(`Here's a drama movie to help you unwind: ${dramaMovie}`);
+            message.channel.send(`Here's a stress-relief YouTube video for you: ${stressReliefVideo}`);
+            break;
+        case 'sad':
+            const sadPlaylist = await getSpotifyPlaylist('sad');
+            const romanceMovie = await getTMDbRecommendation('10749'); // Genre ID for Romance
+            const sadVideo = await getYouTubeVideo('sad');
+            message.channel.send(`Here's a playlist to match your mood: ${sadPlaylist}`);
+            message.channel.send(`Here's a romantic movie to cheer you up: ${romanceMovie}`);
+            message.channel.send(`Here's a sad YouTube video: ${sadVideo}`);
+            break;
+        default:
+            message.channel.send('Sorry, I don\'t have recommendations for that mood. Try "happy", "stressed", or "sad".');
+            break;
+    }
+}
+
+client.login(process.env.DISCORD_BOT_TOKEN);
